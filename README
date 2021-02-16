@@ -38,7 +38,7 @@ README contents:
 DEPENDENCIES
 ============
 
-libpsm2 w/cuda support installed on GPU nodes
+libpsm2 w/NCCL support (https://github.com/cornelisnetworks/opa-psm2/tree/PSM2_11.2.NCCL) installed on GPU nodes
 hfi1-gpudirect
 NCCL 2.8.3 must be installed on GPU nodes
 NCCL development clone to build psm2-nccl plugin; available here - https://github.com/NVIDIA/nccl.git
