@@ -54,25 +54,44 @@ typedef enum {
 	ReqRecv = 2
 } comm_req_type;
 
+typedef struct psm2comm psm2comm_t;
 /**
  * Stores info needed to test an outstanding isend, irecv for completion.
  */
 typedef struct comm_req {
 	int used;
+	psm2comm_t *comm;
 	psm2_ep_t ep;
+	psm2_mq_t mq;
 	psm2_mq_req_t req;
 	comm_req_type type;
+	int done;
+	int recv_size;
 } comm_req_t;
 
 #define NUM_REQUESTS NCCL_NET_MAX_REQUESTS
 
+typedef struct {
+	psm2_ep_t ep;
+	psm2_epid_t epid;
+	unsigned int refcount;
+} shared_ep_t;
+
+static int use_shared_ep = 1;
+static int use_gpudirect = 0;
+
+shared_ep_t shared_ep = {0};
+
+
 /**
  * Defines info needed to send to/receive from one other NCCL rank.
+ * Communicators may either have their own EPs or share a PSM2 EP with all other communicators.
  */
 typedef struct psm2comm {
 	psm2_ep_t ep;
 	psm2_epid_t epid;
 	psm2_mq_t mq;
+	shared_ep_t *shared_ep;
 	psm2_epid_t rem_epid;
 	// psm2comm is 1:1 with a remote psm2comm, so only need 1 epaddr
 	psm2_epaddr_t rem_epaddr;
@@ -103,10 +122,6 @@ static const int64_t COMM_EP_CONNECT_TIMEOUT = 5e9; // 5 seconds
 // MAX_DEV is here as a sanity check. 3 comes from psm/psm_config.h:HFI_MAX_RAILS
 // NCCL should call .devices() to get actual count on system.
 static const int MAX_DEV = 3;
-
-
-static int psm_cuda;
-static int psm_gpudirect;
 
 static psm2_uuid_t jobkey;
 static int use_nccl_dev_num = 1;
@@ -157,23 +172,38 @@ static int psm2comm_init_ep(int dev, psm2_uuid_t uuid, psm2comm_t *comm)
 	psm2_ep_t ep;
 	psm2_epid_t epid;
 
-	struct psm2_ep_open_opts opts;
-	if (use_nccl_dev_num)
-		opts.unit = dev;
+	if (!use_shared_ep || !shared_ep.refcount) {
+		struct psm2_ep_open_opts opts;
+		if (use_nccl_dev_num)
+			opts.unit = dev;
 
-	int rc = psm2_ep_open_opts_get_defaults(&opts);
-	if (rc != PSM2_OK) {
-		PSM_ERROR("psm2_ep_open_opts_get_defaults(): rc=%d", rc);
-		return ncclInternalError;
+		int rc = psm2_ep_open_opts_get_defaults(&opts);
+		if (rc != PSM2_OK) {
+			PSM_ERROR("psm2_ep_open_opts_get_defaults(): rc=%d", rc);
+			return ncclInternalError;
+		}
+
+		rc = psm2_ep_open(uuid, &opts, &ep, &epid);
+		PSM_VERDBG("psm2_ep_open: rc=%d,ep=%p,epid=%"PRId64, rc, ep, epid);
+		if (rc != PSM2_OK)
+			return ncclInternalError;
+
+		if (use_shared_ep) {
+			shared_ep.ep = ep;
+			shared_ep.epid = epid;
+		}
+	} else {
+		ep = shared_ep.ep;
+		epid = shared_ep.epid;
 	}
-
-	rc = psm2_ep_open(uuid, &opts, &ep, &epid);
-	PSM_VERDBG("psm2_ep_open: rc=%d,ep=%p,epid=%"PRId64, rc, ep, epid);
-	if (rc != PSM2_OK)
-		return ncclInternalError;
 
 	comm->ep = ep;
 	comm->epid = epid;
+
+	if (use_shared_ep) {
+		comm->shared_ep = &shared_ep;
+		shared_ep.refcount++;
+	}
 
 	return ncclSuccess;
 }
@@ -221,10 +251,18 @@ static int psm2comm_fini(psm2comm_t *comm)
 	if (mqrc != PSM2_OK)
 		PSM_WARN("psm2_mq_finalize() rc != PSM2_OK; rc=%d", mqrc);
 
-	eprc = psm2_ep_close(comm->ep, PSM2_EP_CLOSE_GRACEFUL, timeout);
-	if (eprc != PSM2_OK)
-		PSM_WARN("psm2_ep_close() rc != PSM2_OK; rc=%d", eprc);
+	if (comm->shared_ep)
+		comm->shared_ep->refcount--;
 
+	if (!comm->shared_ep || !comm->shared_ep->refcount) {
+		eprc = psm2_ep_close(comm->ep, PSM2_EP_CLOSE_GRACEFUL, timeout);
+		if (eprc != PSM2_OK)
+			PSM_WARN("psm2_ep_close() rc != PSM2_OK; rc=%d", eprc);
+
+		if (comm->shared_ep) {
+			memset(comm->shared_ep, 0, sizeof(shared_ep_t));
+		}
+	}
 	free(comm);
 
 	return (mqrc == PSM2_OK && eprc == PSM2_OK? ncclSuccess: ncclInternalError);
@@ -256,10 +294,33 @@ ncclResult_t psm2_nccl_init(ncclDebugLogger_t logFunction)
 			" To let PSM2 decide which HFI to use or to use HFI_UNIT, set PSM2_NCCL_USE_NCCL_DEV=0.");
 	}
 
+	char *eshep = getenv("PSM2_NCCL_SHARED_EP");
+	if (eshep) {
+		char *end = NULL;
+		unsigned long envval = strtoul(eshep, &end, 2);
+		if (*end != '\0' || (envval != 0 && envval != 1)) {
+			PSM_ERROR("PSM2_NCCL_SHARED_EP must be 0 or 1. \"%s\" is neither.", eshep);
+			return ncclInternalError;
+		}
+		use_shared_ep = (int)envval;
+	}
+
+	char *euse_gdr = getenv("PSM2_NCCL_USE_GPUDIRECT");
+	if (euse_gdr) {
+		char *end = NULL;
+		unsigned long val = strtoul(euse_gdr, &end, 2);
+		if (*end != '\0' || val > 1) {
+			PSM_ERROR("PSM2_NCCL_USE_GPUDIRECT must be 0 or 1.");
+			return ncclInternalError;
+		}
+		use_gpudirect = val;
+	}
+
 	// PSM2 API does not allow for getting PSM2-CUDA/GPUDirect status before opening
 	// an endpoint.
 	// Assume that CUDA, GPUDirect are disabled but get the actual
 	// value from the PSM2_CUDA and PSM2_GPUDIRECT envvars.
+	int psm_cuda, psm_gpudirect;
 	psm_cuda = psm_gpudirect = 0;
 	char *ecuda = getenv("PSM2_CUDA");
 	if (ecuda) {
@@ -282,17 +343,11 @@ ncclResult_t psm2_nccl_init(ncclDebugLogger_t logFunction)
 		}
 
 		psm_gpudirect = val;
-		if (psm_gpudirect && !psm_cuda) {
-			PSM_ERROR("PSM2_GPUDIRECT cannot be enabled with PSM2_CUDA disabled.");
-			return ncclInternalError;
-		}
 	}
 
-	if (!ecuda || !egpudirect) {
-		// PSM2 has its own logic for default CUDA, GPUDirect. So warn that we can't guess
-		// what PSM2 will do and default to off.
-		PSM_WARN("PSM2_CUDA and/or PSM2_GPUDIRECT not set in environment. Disabling GPUDirect support in NCCL plugin.");
-		psm_gpudirect = 0;
+	if (use_gpudirect && (!psm_cuda || !psm_gpudirect)) {
+		PSM_WARN("PSM2_CUDA and/or PSM2_GPUDIRECT not set in environment or disabled. Disabling plugin GPUDirect support.")
+		use_gpudirect = 0;
 	}
 
 
@@ -366,7 +421,7 @@ ncclResult_t psm2_nccl_getProperties(int dev, ncclNetProperties_v4_t* props)
 	PSM_DBG("dev=%d,guid=0x%"PRIX64, dev, props->guid);
 
 	props->ptrSupport = NCCL_PTR_HOST;
-	if (psm_cuda && psm_gpudirect) {
+	if (use_gpudirect) {
 		props->ptrSupport |= NCCL_PTR_CUDA;
 	}
 	PSM_DBG("dev=%d,ptrSupport=0x%X", dev, props->ptrSupport);
@@ -537,6 +592,9 @@ static comm_req_t * get_req(psm2comm_t *comm, int type)
 	memset(r, 0, sizeof(comm_req_t));
 	r->type = type;
 	r->used = 1;
+	r->comm = comm;
+	r->ep = comm->ep;
+	r->mq = comm->mq;
 	PSM_VERDBG("r=%p,r.type=%d", r, r->type);
 	return r;
 }
@@ -560,8 +618,7 @@ ncclResult_t psm2_nccl_isend(void* sendComm, void* data, int size, void* mhandle
 		return ncclSuccess;
 	}
 
-	r->ep = comm->ep;
-	int rc = psm2_mq_isend(comm->mq, comm->rem_epaddr, 0, comm->tag, data, size, NULL, &r->req);
+	int rc = psm2_mq_isend(comm->mq, comm->rem_epaddr, PSM2_MQ_FLAG_GDRCPY_ONLY, comm->tag, data, size, (void*)r, &r->req);
 	PSM_VERDBG("rc=%d,req=%p", rc, r->req);
 	if (rc != PSM2_OK) {
 		PSM_ERROR("isend() failed; rc=%d", rc);
@@ -586,8 +643,7 @@ ncclResult_t psm2_nccl_irecv(void* recvComm, void* data, int size, void* mhandle
 		return ncclSuccess;
 	}
 
-	r->ep = comm->ep;
-	int rc = psm2_mq_irecv(comm->mq, comm->tag, ~((uint64_t)0), 0, data, size, NULL, &r->req);
+	int rc = psm2_mq_irecv(comm->mq, comm->tag, ~((uint64_t)0), PSM2_MQ_FLAG_GDRCPY_ONLY, data, size, (void*)r, &r->req);
 	PSM_VERDBG("rc=%d,req=%p", rc, r->req);
 	if (rc != PSM2_OK) {
 		PSM_ERROR("irecv() failed; rc=%d", rc);
@@ -606,6 +662,61 @@ ncclResult_t psm2_nccl_iflush(void* recvComm, void* data, int size, void* mhandl
 	return ncclSuccess;
 }
 
+static int mq_progress_loop(psm2_mq_t mq)
+{
+	int rc;
+	int completed = 0;
+
+	do {
+		psm2_mq_req_t mqr = {0};
+		psm2_mq_status_t s = {0};
+		rc = psm2_mq_ipeek(mq, &mqr, NULL);
+		if (rc == PSM2_MQ_INCOMPLETE) {
+			PSM_INFO("%s:mq=%p,completed=%d", __func__, mq, completed);
+			return 0;
+		}
+
+		assert(rc == PSM2_OK);
+		if (rc != PSM2_OK) {
+			PSM_INFO("%s:mq=%p,psm2_mq_ipeek returned with rc=%d is not OK nor INCOMPLETE", __func__, mq, rc);
+			return rc;
+		}
+		// Retire/free the PSM2 request object
+		int testrc = psm2_mq_test(&mqr, &s);
+		assert(testrc == PSM2_OK);
+		if (testrc != PSM2_OK) {
+			PSM_INFO("%s:mq=%p,testrc=%d", __func__, mq, testrc);
+			return testrc;
+		}
+		completed++;
+		comm_req_t *r = (comm_req_t*) s.context;
+		assert(r->used);
+		if (!r->used) {
+			PSM_INFO("%s:r=%p, request not used", __func__, r);
+			return -1;
+		}
+		assert(!r->done);
+		if (r->done) {
+			PSM_INFO("%s:r=%p, request is done", __func__, r);
+			return -1;
+		}
+		r->done = 1;
+		if (r->type == ReqRecv) {
+			assert(s.nbytes <= INT_MAX);
+			if (s.nbytes > INT_MAX) {
+				PSM_INFO("%s:r=%p, nbytes=%d > INT_MAX", __func__, r, (int)s.nbytes);;
+				return -1;
+			}
+			r->recv_size = (int)s.nbytes;
+		}
+		PSM_INFO("%s: r=%p,r.comm=%p,r.done=%d,r.type=%d,r.recv_size=%d", __func__,
+			r, r->comm, r->done, r->type, r->recv_size);
+	} while (rc == PSM2_OK);
+	PSM_INFO("%s completed=%d", __func__, completed);
+
+	return -1;
+}
+
 /**
  * Test whether a request is complete.
  *
@@ -621,41 +732,25 @@ ncclResult_t psm2_nccl_test(void* request, int* done, int* size)
 	if (!r->used)
 		return ncclSuccess;
 
-	// Progress all operations associated with the EP
-	psm2_poll(r->ep);
+	int rc = mq_progress_loop(r->mq);
+	if (rc != ncclSuccess)
+		return ncclInternalError;
 
-	// But only test for the psm2_mq_req_t passed in
-	psm2_mq_status_t s = {0};
-	int rc = psm2_mq_test(&r->req, &s);
-	comm_req_type type = r->type;
-
-	if (plugin_logLevel >= PSM2_NCCL_LOG_LEVEL_VERDBG) {
-		PSM_VERDBG("test r=%p,r.ep=%p,r.req=%p,r.type=%d,rc=%d,error_code=%d,msg_length=%u,nbytes=%u",
-			r, r->ep, r->req, r->type, rc, s.error_code, s.msg_length, s.nbytes);
-	}
-
-	if (rc == PSM2_MQ_INCOMPLETE) {
+	if (!r->done) {
 		*done = 0;
 		return ncclSuccess;
 	}
 
-	if (plugin_logLevel < PSM2_NCCL_LOG_LEVEL_VERDBG) {
-		PSM_DBG("test r=%p,r.ep=%p,r.req=%p,r.type=%d,rc=%d,error_code=%d,msg_length=%u,nbytes=%u",
-			r, r->ep, r->req, r->type, rc, s.error_code, s.msg_length, s.nbytes);
+	PSM_DBG("test r=%p,r.ep=%p,r.mq=%p,r.req=%p,r.type=%d,r.recv_size=%d,rc=%d",
+		r, r->ep, r->mq, r->req, r->type, r->recv_size, rc);
+
+	if (r->type == ReqRecv) {
+		*size = r->recv_size;
 	}
 
 	put_req(r);
 	if (rc != PSM2_OK)
 		return ncclInternalError;
-
-	if (type == ReqRecv) {
-		assert(s.nbytes <= INT_MAX);
-		if (s.nbytes > INT_MAX)
-			return ncclInternalError;
-
-		if (size)
-			*size = (int)s.nbytes;
-	}
 
 	*done = 1;
 	return ncclSuccess;

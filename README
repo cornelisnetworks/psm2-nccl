@@ -29,48 +29,73 @@
 
 #[ICS VERSION STRING: unknown]
 
-README contents:
+README Contents:
 - DEPENDENCIES
 - BUILDING
 - RUNNING
-- NCCL ranks, PSM2 endpoints, and hfi1 num_user_contexts
+- PSM2-NCCL PLUGIN GENERAL USAGE NOTES
+  - GPUDirect Support
+  - PSM2-NCCL and PSM2 Multi-Endpoint
+  - PSM2 Endpoint Counts
+  - Plugin Logging
 
 DEPENDENCIES
 ============
-
-libpsm2 w/NCCL support (https://github.com/cornelisnetworks/opa-psm2/tree/PSM2_11.2.NCCL) installed on GPU nodes
-hfi1-gpudirect
-NCCL 2.8.3 must be installed on GPU nodes
-NCCL development clone to build psm2-nccl plugin; available here - https://github.com/NVIDIA/nccl.git
-* Must also build NCCL development clone in order to generate headers needed to build PSM2-NCCL.
+* IFS 10.11 installed on GPU nodes
+* libpsm2 w/NCCL support (https://github.com/cornelisnetworks/opa-psm2/tree/PSM2_11.2.NCCL) installed on GPU nodes
+* hfi1-gpudirect
+* NCCL 2.9.6 or later must be installed on GPU nodes
+* NCCL development clone to build psm2-nccl plugin; available here - https://github.com/NVIDIA/nccl.git
+  - Must also build NCCL development clone in order to generate headers needed to build PSM2-NCCL.
 
 BUILDING
 ========
-cd into psm2-nccl clone and do "make".
+Change directory (cd) to the psm2-nccl clone and run "make".
 
-Set 'BUILDDIR' make variable to control where libnccl-net.so goes. By default, BUILDDIR is '.'.
+Set the 'BUILDDIR' make variable to control where generated libnccl-net.so is placed. By default, BUILDDIR is '.'.
 
 See Makefile for other directory and build variables.
 
 RUNNING
 =======
-Add directory containing psm2-nccl libnccl-net.so to LD_LIBRARY_PATH and ensure LD_LIBRARY_PATH is exported to rank environments.
+Add the directory containing psm2-nccl's libnccl-net.so to LD_LIBRARY_PATH and ensure LD_LIBRARY_PATH is set in the job (i.e., of all ranks') environment.
 
-Run your NCCL app using OpenMPI mpirun, e.g.:
-	mpirun -np 2 --map-by ppr:1:node -host <host1>,<host2> -x PSM2_CUDA=1 -x PSM2_GPUDIRECT=1 -x PSM2_GDRCOPY=0 -x PSM2_MULTI_EP=1 -x LD_LIBRARY_PATH -x NCCL_NET_GDR_LEVEL=5 build/all_reduce_perf
+Run your NCCL application using Open MPI mpirun, e.g.,:
+	mpirun -host <host1>:2,<host2>:2 -x PSM2_CUDA=1 -x PSM2_GPUDIRECT=1 -x PSM2_MULTI_EP=1 -x LD_LIBRARY_PATH -x NCCL_NET_GDR_LEVEL=5 build/all_reduce_perf
 
-Environment variable notes:
-* PSM2_MULTI_EP=1 must be set in all ranks' environments. Not doing so may cause the job to fail on a psm2_ep_open() with the error 'PSM2_TOO_MANY_ENDPOINTS'.
-* PSM2_CUDA=1, PSM2_GPUDIRECT must be set in all ranks' environments for PSM2-NCCL to use GPUDirect.
-* PSM2_RCVTHREAD=0 is not supported with PSM2-NCCL.
-* PSM2-NCCL uses NCCL's logging system for debug output. All PSM2-NCCL output is logged under the NCCL 'NET' logging subsystem. To get PSM2-NCCL debug output, add '-x NCCL_DEBUG=INFO -x NCCL_DEBUG_SUBSYS=NET -x PSM2_NCCL_LOG_LEVEL=2' to your mpirun line. See src/include/psm2_nccl_debug.h for PSM2-NCCL log levels.
+PSM2-NCCL only supports Open MPI at present. Some parts of PSM2 depend on the MPI_LOCALNRANKS and MPI_LOCALRANKID environment variables and will perform sub-optimally if those variables are not set.
 
-PSM2-NCCL only supports OpenMPI at present. You may use CUDA-aware or CUDA-naive OpenMPI but per this (https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/mpi.html#inter-gpu-communication-with-cuda-aware-mpi), using NCCL and CUDA-aware MPI operations concurrently may cause deadlocks.
+You may use CUDA-aware or CUDA-naive Open MPI but per the NCCL User Guide (https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/mpi.html#inter-gpu-communication-with-cuda-aware-mpi), using NCCL and CUDA-aware MPI operations concurrently may cause deadlocks.
 
-PSM2 does not support more than one GPU per host process and so PSM2-NCCL similarly does not support more than one GPU per host process.
+PSM2 does not support more than one GPU per host process. Similarly, PSM2-NCCL does not support more than one GPU per host process.
 
-NCCL ranks, PSM2 endpoints, and hfi1 num_user_contexts
-======================================================
-PSM2-NCCL uses one PSM2 endpoint for each NCCL communicator object. Each NCCL rank requires one send and one receive NCCL communicator object to establish bidirectional communications with a remote NCCL rank. As NCCL typically requires an all-to-all communication pattern, the size of a NCCL job with PSM2-NCCL is limited to (number of PSM2 endpoints)/2.
+PSM2-NCCL PLUGIN GENERAL USAGE NOTES
+====================================
 
-The number of PSM2 endpoints is limited by the number of hfi1 contexts. Typically, hfi1 will  have as many contexts as there are physical CPU cores on the system. The number of hfi1 contexts can be increased up to a limit of 160 using the 'num_user_contexts' kernel module parameter.
+GPUDirect Support
+-------------------------------
+The PSM2-NCCL plugin by default does not use GPUDirect. This default should not be changed.
+
+PSM2-NCCL and PSM2 Multi-Endpoint
+----------------------------------
+Each NCCL rank (GPU) in a NCCL job typically requires one send and one receive NCCL communicator object per remote (i.e., not on same host) NCCL peer-rank.
+
+PSM2-NCCL uses one PSM2 endpoint for all NCCL send and receive communicator objects associated with a host rank. This is called PSM2-NCCL shared-EP mode. This behavior can be changed with the PSM2_NCCL_SHARED_EP environment variable.
+
+PSM2 by default does not allow more than one PSM2 endpoint open at a time within a process. Attempts to open additional endpoints will fail on psm2_ep_open() with the error 'PSM2_TOO_MANY_ENDPOINTS'. This can happen when running a NCCL job with PSM2-NCCL in Open MPI where Open MPI also uses PSM2 directly (PSM2 MTL) or indirectly (via OFI MTL).
+
+This problem can be solved by enabling PSM2 multi-endpoint with PSM2_MULTI_EP=1. Enabling PSM2 multi-endpoint disables PSM2 context-sharing.
+
+PSM2 Endpoint Counts
+----------------------------------
+The number of PSM2 endpoints on a node is limited by the number of hfi1 contexts. Each PSM2 endpoint requires an hfi1 context. hfi1 will typically have as many contexts as there are physical CPU cores on the system. The number of hfi1 contexts can be increased up to a limit of 160 using the 'num_user_contexts' kernel module parameter.
+
+PSM2 by default uses a feature called context-sharing that allows up to eight PSM2 endpoints to share one hfi1 context. Enabling PSM2 multi-endpoint disables PSM2 context-sharing.
+
+For a NCCL job using PSM2-NCCL, being run through Open MPI with PSM2, and PSM2-NCCL is in shared-EP mode (the default), each host rank will require two PSM2 endpoints; consequently, PSM2_MULTI_EP=1 must be set in the job environments. Recall that PSM2-NCCL can only handle one GPU per host process, so M host processes are requires for M NCCL ranks (GPUs) on a node in a job. Assuming the hfi1 default of num_user_contexts=<num physical cores>, a system with 36 physical CPU cores could host 18 (PSM2-NCCL, OMPI) ranks => 18 NCCL ranks (GPUs).
+
+Plugin Logging
+--------------
+PSM2-NCCL uses NCCL's logging system for debug output. All PSM2-NCCL output is logged under the NCCL 'NET' logging subsystem. To get PSM2-NCCL debug output, add '-x NCCL_DEBUG=INFO -x NCCL_DEBUG_SUBSYS=NET -x PSM2_NCCL_LOG_LEVEL=2' to your mpirun line.
+
+See src/include/psm2_nccl_debug.h for PSM2-NCCL log levels.

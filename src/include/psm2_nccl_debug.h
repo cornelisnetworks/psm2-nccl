@@ -53,10 +53,8 @@ extern unsigned int plugin_logLevel;
 	if (plugin_logLevel >= (level)) { \
 		if (level<=PSM2_NCCL_LOG_LEVEL_ERROR) \
 			pluginLogFunction(NCCL_LOG_WARN, NCCL_NET, __FILE__, __LINE__, "PSM2 " fmt, ##__VA_ARGS__); \
-		if (level<=PSM2_NCCL_LOG_LEVEL_DBG) \
-			pluginLogFunction(NCCL_LOG_INFO, NCCL_NET, __FILE__, __LINE__, "PSM2 " fmt, ##__VA_ARGS__); \
 		else \
-			pluginLogFunction(NCCL_LOG_TRACE, NCCL_NET, __FILE__, __LINE__, "PSM2 " fmt, ##__VA_ARGS__); \
+			pluginLogFunction(NCCL_LOG_INFO, NCCL_NET, __FILE__, __LINE__, "PSM2 " fmt, ##__VA_ARGS__); \
 	}
 
 #define PSM_WARN(fmt, ...) PSM_LOG_MSG(PSM2_NCCL_LOG_LEVEL_WARN, "Warn", fmt, ##__VA_ARGS__)
