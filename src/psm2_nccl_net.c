@@ -112,7 +112,7 @@ static void dump_comm(const psm2comm_t *comm, const char *caller);
 static int psm2comm_init(int dev, psm2_uuid_t uuid, psm2comm_t **comm);
 static int psm2comm_fini(psm2comm_t *comm);
 
-unsigned int plugin_logLevel = 1;
+unsigned int plugin_logLevel = 0;
 ncclDebugLogger_t pluginLogFunction;
 
 // Timeouts are in nanoseconds
