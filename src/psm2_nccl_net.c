@@ -178,14 +178,14 @@ static int psm2comm_init_ep(int dev, psm2_uuid_t uuid, psm2comm_t *comm)
 
 	if (!use_shared_ep || !shared_ep.refcount) {
 		struct psm2_ep_open_opts opts;
-		if (use_nccl_dev_num)
-			opts.unit = dev;
-
 		int rc = psm2_ep_open_opts_get_defaults(&opts);
 		if (rc != PSM2_OK) {
 			PSM_ERROR("psm2_ep_open_opts_get_defaults(): rc=%d", rc);
 			return ncclInternalError;
 		}
+		if (use_nccl_dev_num)
+			opts.unit = dev;
+
 
 		rc = psm2_ep_open(uuid, &opts, &ep, &epid);
 		PSM_VERDBG("psm2_ep_open: rc=%d,ep=%p,epid=%"PRId64, rc, ep, epid);
