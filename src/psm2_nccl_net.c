@@ -136,17 +136,21 @@ static int psm2_nccl_init_logging(ncclDebugLogger_t logFunction)
 		char *end = NULL;
 		unsigned long loglevel = strtoul(llvar, &end, 10);
 		if (*end != '\0') {
-			PSM_ERROR("[Error, pre-log-init] PSM2_NCCL_LOG_LEVEL \"%s\" is not an integer", llvar);
+			fprintf(stderr, "%s: [Error, pre-log-init] PSM2_NCCL_LOG_LEVEL \"%s\" is not an integer\n",
+				__func__, llvar);
 			return -1;
 		} else if (loglevel > UINT_MAX) {
-			PSM_ERROR("PSM2_NCCL_LOG_LEVEL (%lu) out of range. Max allowed value = %u", loglevel, UINT_MAX);
+			fprintf(stderr,
+				"%s: [Error, pre-log-init] PSM2_NCCL_LOG_LEVEL (%lu) out of range. Max allowed value = %u\n",
+				__func__, loglevel, UINT_MAX);
 			return -2;
 		}
 
 		plugin_logLevel = (unsigned int)loglevel;
 		if (plugin_logLevel > PSM2_NCCL_LOG_LEVEL_VERDBG) {
-			fprintf(stderr, "[Error, pre-log-init] PSM2_NCCL_LOG_LEVEL (%u) too high. Maximum allowed value = %u",
-				plugin_logLevel, PSM2_NCCL_LOG_LEVEL_VERDBG);
+			fprintf(stderr,
+				"%s: [Error, pre-log-init] PSM2_NCCL_LOG_LEVEL (%u) too high. Maximum allowed value = %u\n",
+				__func__, plugin_logLevel, PSM2_NCCL_LOG_LEVEL_VERDBG);
 			plugin_logLevel = 0;
 			return -3;
 		}
