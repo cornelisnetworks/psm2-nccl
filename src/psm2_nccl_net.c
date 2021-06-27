@@ -159,11 +159,11 @@ static int psm2_nccl_init_logging(ncclDebugLogger_t logFunction)
 static void dump_comm(const psm2comm_t *comm, const char *caller)
 {
 	if (!comm) {
-		PSM_VERDBG("[via %s] comm=%p", (caller? caller: "(nil)"), comm);
+		PSM_DBG("[via %s] comm=%p", (caller? caller: "(nil)"), comm);
 		return;
 	}
 
-	PSM_VERDBG("[via %s] comm=%p,epid=%"PRId64",rem_epid=%"PRId64",rem_epaddr=%p,tag=%"PRId64,
+	PSM_DBG("[via %s] comm=%p,epid=%"PRId64",rem_epid=%"PRId64",rem_epaddr=%p,tag=%"PRId64,
 		(caller? caller: "(nil)"), comm, comm->epid, comm->rem_epid, comm->rem_epaddr, comm->tag);
 }
 
@@ -430,7 +430,7 @@ ncclResult_t psm2_nccl_getProperties(int dev, ncclNetProperties_v4_t* props)
 
 	uint32_t ports = 0;
 	rc = psm2_info_query(PSM2_INFO_QUERY_NUM_PORTS, (void*)&ports, 0, NULL);
-	PSM_DBG("deb=%d,rc=%d,ports=%u", dev, rc, ports);
+	PSM_DBG("dev=%d,rc=%d,ports=%u", dev, rc, ports);
 	if (rc != PSM2_OK) {
 		PSM_WARN("Querying for number of ports returned an error. Port count query is informational only.");
 	}
@@ -672,47 +672,47 @@ static int mq_progress_loop(psm2_mq_t mq)
 		psm2_mq_status_t s = {0};
 		rc = psm2_mq_ipeek(mq, &mqr, NULL);
 		if (rc == PSM2_MQ_INCOMPLETE) {
-			PSM_INFO("%s:mq=%p,completed=%d", __func__, mq, completed);
+			PSM_VERDBG("%s:mq=%p,completed=%d", __func__, mq, completed);
 			return 0;
 		}
 
 		assert(rc == PSM2_OK);
 		if (rc != PSM2_OK) {
-			PSM_INFO("%s:mq=%p,psm2_mq_ipeek returned with rc=%d is not OK nor INCOMPLETE", __func__, mq, rc);
+			PSM_VERDBG("%s:mq=%p,psm2_mq_ipeek returned with rc=%d is not OK nor INCOMPLETE", __func__, mq, rc);
 			return rc;
 		}
 		// Retire/free the PSM2 request object
 		int testrc = psm2_mq_test(&mqr, &s);
 		assert(testrc == PSM2_OK);
 		if (testrc != PSM2_OK) {
-			PSM_INFO("%s:mq=%p,testrc=%d", __func__, mq, testrc);
+			PSM_VERDBG("%s:mq=%p,testrc=%d", __func__, mq, testrc);
 			return testrc;
 		}
 		completed++;
 		comm_req_t *r = (comm_req_t*) s.context;
 		assert(r->used);
 		if (!r->used) {
-			PSM_INFO("%s:r=%p, request not used", __func__, r);
+			PSM_VERDBG("%s:r=%p, request not used", __func__, r);
 			return -1;
 		}
 		assert(!r->done);
 		if (r->done) {
-			PSM_INFO("%s:r=%p, request is done", __func__, r);
+			PSM_VERDBG("%s:r=%p, request is done", __func__, r);
 			return -1;
 		}
 		r->done = 1;
 		if (r->type == ReqRecv) {
 			assert(s.nbytes <= INT_MAX);
 			if (s.nbytes > INT_MAX) {
-				PSM_INFO("%s:r=%p, nbytes=%d > INT_MAX", __func__, r, (int)s.nbytes);;
+				PSM_VERDBG("%s:r=%p, nbytes=%d > INT_MAX", __func__, r, (int)s.nbytes);;
 				return -1;
 			}
 			r->recv_size = (int)s.nbytes;
 		}
-		PSM_INFO("%s: r=%p,r.comm=%p,r.done=%d,r.type=%d,r.recv_size=%d", __func__,
+		PSM_VERDBG("%s: r=%p,r.comm=%p,r.done=%d,r.type=%d,r.recv_size=%d", __func__,
 			r, r->comm, r->done, r->type, r->recv_size);
 	} while (rc == PSM2_OK);
-	PSM_INFO("%s completed=%d", __func__, completed);
+	PSM_VERDBG("%s completed=%d", __func__, completed);
 
 	return -1;
 }
@@ -741,7 +741,7 @@ ncclResult_t psm2_nccl_test(void* request, int* done, int* size)
 		return ncclSuccess;
 	}
 
-	PSM_DBG("test r=%p,r.ep=%p,r.mq=%p,r.req=%p,r.type=%d,r.recv_size=%d,rc=%d",
+	PSM_VERDBG("test r=%p,r.ep=%p,r.mq=%p,r.req=%p,r.type=%d,r.recv_size=%d,rc=%d",
 		r, r->ep, r->mq, r->req, r->type, r->recv_size, rc);
 
 	if (r->type == ReqRecv) {
