@@ -42,7 +42,7 @@ LIBSRC := src/psm2_nccl_net.c src/hfi_sysclass.c
 LIBOBJS := $(LIBSRC:.c=.o)
 
 INCLUDES := -Isrc/include -I$(PSM2_INCLUDE) -I$(NCCL_INCLUDE) -I$(CUDA_INCLUDE)
-DEBUG := 1
+DEBUG := 0
 
 .PHONY : all clean
 .DEFAULT_GOAL := all
@@ -51,7 +51,7 @@ BASECFLAGS := -Wall
 ifeq ($(DEBUG),1)
 BASECFLAGS += -g -Og
 else
-BASECFLAGS += -O2
+BASECFLAGS += -O3
 endif
 
 BASELDFLAGS := -lpsm2 -lnccl
