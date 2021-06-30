@@ -250,15 +250,20 @@ bail:
 static int psm2comm_fini(psm2comm_t *comm)
 {
 	int64_t timeout = COMM_EP_CLOSE_TIMEOUT;
-	int mqrc = psm2_mq_finalize(comm->mq);
-	int eprc = PSM2_OK;
+	int mqrc = PSM2_OK;
+	if (comm->mq) {
+		mqrc = psm2_mq_finalize(comm->mq);
+		comm->mq = NULL;
+	}
+
 	if (mqrc != PSM2_OK)
 		PSM_WARN("psm2_mq_finalize() rc != PSM2_OK; rc=%d", mqrc);
 
+	int eprc = PSM2_OK;
 	if (comm->shared_ep)
 		comm->shared_ep->refcount--;
 
-	if (!comm->shared_ep || !comm->shared_ep->refcount) {
+	if (comm->ep && (!comm->shared_ep || !comm->shared_ep->refcount)) {
 		eprc = psm2_ep_close(comm->ep, PSM2_EP_CLOSE_GRACEFUL, timeout);
 		if (eprc != PSM2_OK)
 			PSM_WARN("psm2_ep_close() rc != PSM2_OK; rc=%d", eprc);
