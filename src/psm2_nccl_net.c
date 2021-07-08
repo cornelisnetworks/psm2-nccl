@@ -84,7 +84,7 @@ typedef struct {
 static int use_shared_ep = 1;
 static int shared_ep_multi_policy = SHARED_EP_MULTI_WARN;
 
-static int use_gpudirect = 0;
+static int use_gpudirect = 1;
 
 shared_ep_t shared_ep = {0};
 
