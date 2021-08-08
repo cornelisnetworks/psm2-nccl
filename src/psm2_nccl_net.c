@@ -709,6 +709,19 @@ ncclResult_t psm2_nccl_irecv(void* recvComm, void* data, int size, void* mhandle
 // visible to the GPU
 ncclResult_t psm2_nccl_iflush(void* recvComm, void* data, int size, void* mhandle, void** request)
 {
+	// NCCL calls this method on recv requests after psm2_nccl_test() returns
+	// done == 1. Even though request has now been put back in its comm's
+	// request pool, this cannot race provided that NCCL does not call
+	// psm2_nccl_isend(), psm2_nccl_irecv() on the same comm simultaneously
+	// from another thread.
+	if (request) {
+		comm_req_t *r = (comm_req_t *)*request;
+		assert(!r->used);
+		if (r->used)
+			return ncclInternalError;
+		// Remove (null-out) request in NCCL's requests array
+		*request = NULL;
+	}
 	return ncclSuccess;
 }
 
@@ -778,9 +791,10 @@ ncclResult_t psm2_nccl_test(void* request, int* done, int* size)
 {
 	comm_req_t *r = (comm_req_t*)request;
 
-	// NCCL may retest communications that have already completed; this is not an error.
-	if (!r->used)
-		return ncclSuccess;
+	if (!r->used) {
+		assert(!r->used);
+		return ncclInternalError;
+	}
 
 	int rc = mq_progress_loop(r->mq);
 	if (rc != ncclSuccess)
