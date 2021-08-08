@@ -789,6 +789,7 @@ static int mq_progress_loop(psm2_mq_t mq)
  */
 ncclResult_t psm2_nccl_test(void* request, int* done, int* size)
 {
+	*done = 0;
 	comm_req_t *r = (comm_req_t*)request;
 
 	if (!r->used) {
