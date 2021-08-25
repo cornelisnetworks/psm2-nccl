@@ -43,6 +43,7 @@ DEPENDENCIES
 ============
 * IFS 10.11 installed on GPU nodes
 * libpsm2 w/NCCL support (https://github.com/cornelisnetworks/opa-psm2/tree/PSM2_11.2.NCCL) installed on GPU nodes
+  - libpsm2 should be built with CUDA support. See opa-psm2/README for how to build with CUDA support.
 * hfi1-gpudirect
 * NCCL 2.9.6 or later must be installed on GPU nodes
 * NCCL development clone to build psm2-nccl plugin; available here - https://github.com/NVIDIA/nccl.git
@@ -74,7 +75,11 @@ PSM2-NCCL PLUGIN GENERAL USAGE NOTES
 
 GPUDirect Support
 -------------------------------
-The PSM2-NCCL plugin by default does not use GPUDirect. This default should not be changed.
+The PSM2-NCCL plugin has GPUDirect support enabled by default. This default should not be changed.
+
+Restrictions:
+* NCCL_NET_GDR_READ=0 must be set in job environment to disable GPUDirect on the send-side. Not doing so may result in deadlocks.
+* NCCL_PROTO=^LL128 must be set in job environment to prevent NCCL from using LL128 with the PSM2-NCCL plugin. Not doing so may result in silent data corruption.
 
 PSM2-NCCL and PSM2 Multi-Endpoint
 ----------------------------------
