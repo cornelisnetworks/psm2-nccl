@@ -30,22 +30,36 @@
 #[ICS VERSION STRING: unknown]
 
 PSM2_INCLUDE := /usr/include
+PSM2_LIB := /usr/lib64
 
-# psm2-nccl requires nccl_net.h, nccl_net.h is in a nccl development clone.
 NCCL_SRC_DIR := ../nccl/src
-NCCL_INCLUDE := $(NCCL_SRC_DIR)/include
-CUDA_INCLUDE := /usr/local/cuda/include
+ifneq ($(NCCL_HOME),)
+NCCL_INCLUDE := $(NCCL_HOME)/include/
+NCCL_LIB := $(NCCL_HOME)/lib/
+endif
+
+CUDA_HOME := /usr/local/cuda
+CUDA_INCLUDE := $(CUDA_HOME)/include
 
 BUILDDIR := .
 SONAME := $(BUILDDIR)/libnccl-net.so
 LIBSRC := src/psm2_nccl_net.c src/hfi_sysclass.c
 LIBOBJS := $(LIBSRC:.c=.o)
 
-INCLUDES := -Isrc/include -I$(PSM2_INCLUDE) -I$(NCCL_INCLUDE) -I$(CUDA_INCLUDE)
-DEBUG := 0
+INCLUDES := -Isrc/include $(addprefix -I,$(PSM2_INCLUDE) $(NCCL_INCLUDE) $(CUDA_INCLUDE))
 
-.PHONY : all clean
-.DEFAULT_GOAL := all
+# nccl_net.h is needed to build the plugin.
+# NCCL source builds (all compatible versions) and libnccl-devel rpms (version
+# >= 2.10.3) install nccl_net.h.
+# But libnccl-devel rpms for version < 2.10.3 do not.
+# So in that case, use nccl_net.h from nccl source tree if available.
+ifneq ($(strip $(NCCL_SRC_DIR)),)
+ifneq ($(strip $(wildcard $(NCCL_SRC_DIR)/include/nccl_net.h)),)
+INCLUDES += -I"$(NCCL_SRC_DIR)/include"
+endif
+endif
+
+DEBUG := 0
 
 BASECFLAGS := -Wall
 ifeq ($(DEBUG),1)
@@ -54,10 +68,13 @@ else
 BASECFLAGS += -O3
 endif
 
-BASELDFLAGS := -lpsm2 -lnccl
+BASELDFLAGS := $(addprefix -L,$(PSM2_LIB) $(NCCL_LIB)) -lpsm2 -lnccl
+
+.PHONY : all clean
+.DEFAULT_GOAL := all
 
 %.o : %.c
-	$(CC) $(INCLUDES) $(CFLAGS) $(BASECFLAGS) -c -fPIC -o $@  $^
+	$(CC) $(INCLUDES) $(BASECFLAGS) $(CFLAGS)  -c -fPIC -o $@  $^
 
 $(SONAME) : $(LIBOBJS)
 	$(LD) -shared $(BASELDFLAGS) $(LDFLAGS) -o $@ $^
