@@ -112,6 +112,12 @@ PSM2 by default uses a feature called context-sharing that allows up to eight PS
 
 For a NCCL job using PSM2-NCCL, being run through Open MPI with PSM2, and PSM2-NCCL is in shared-EP mode (the default), each host rank will require two PSM2 endpoints; consequently, PSM2_MULTI_EP=1 must be set in the job environments. Recall that PSM2-NCCL can only handle one GPU per host process, so M host processes are requires for M NCCL ranks (GPUs) on a node in a job. Assuming the hfi1 default of num_user_contexts=<num physical cores>, a system with 36 physical CPU cores could host 18 (PSM2-NCCL, OMPI) ranks => 18 NCCL ranks (GPUs).
 
+HFI Selection
+----------------------------------
+NCCL may sometimes not select the correct HFI in multi-HFI environments. For example, NCCL may select an HFI across NUMA or socket boundaries from the GPU if there are no HFIs and GPUs within acceptable distances according to NCCL (NCCL_NET_GDR_LEVEL). In order to force NCCL to use the HFI defined by HFI_UNIT, set PSM2_NCCL_USE_NCCL_DEV=0 and set HFI_UNIT to select the HFI closest to the GPU. The HFI selected by NCCL can be determined with NCCL_DEBUG logging (see the "Plugin Logging" section of this README).
+
+PSM2_NCCL_USE_NCCL_DEV=0 may need to be used with NCCL_NET_GDR_LEVEL=5 if the system topology does not have the HFI and GPU behind the same NUMA node or PCIe switch. NCCL_NET_GDR_LEVEL determines the maximum (GPU,HFI) distance for which NCCL will use DMA, i.e. pass a device pointer to PSM2-NCCL instead of using a bounce buffer. 
+
 Plugin Logging
 --------------
 PSM2-NCCL uses NCCL's logging system for debug output. All PSM2-NCCL output is logged under the NCCL 'NET' logging subsystem. To get PSM2-NCCL debug output, add '-x NCCL_DEBUG=INFO -x NCCL_DEBUG_SUBSYS=NET -x PSM2_NCCL_LOG_LEVEL=2' to your mpirun line.
