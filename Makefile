@@ -61,7 +61,7 @@ endif
 
 DEBUG := 0
 
-BASECFLAGS := -Wall
+BASECFLAGS := -Wall -Werror=incompatible-pointer-types
 ifeq ($(DEBUG),1)
 BASECFLAGS += -g -Og
 else
