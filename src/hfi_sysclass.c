@@ -41,18 +41,23 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <string.h>
 
+// hfi1_<dev>/uevent should be of the form NAME=<devname>
+static const size_t UEVENT_MAX = 256;
+
 ssize_t hfi_sysclass_rd(int dev, const char *attr, char *out, size_t len)
 {
 	int fd;
 	char path[PATH_MAX];
 
 	int prct = snprintf(path, PATH_MAX, HFI_SYSCLASS_FMT"/%s", dev, attr);
-	if (prct >= PATH_MAX)
+	if (prct >= PATH_MAX) {
 		return -1;
+	}
 
 	fd = open(path, O_RDONLY);
-	if (fd < 0)
+	if (fd < 0) {
 		return -2;
+	}
 
 	ssize_t rdct = read(fd, out, len);
 	PSM_DBG("dev=%d,attr=%s,len=%zu,rdct=%zd", dev, attr, len, rdct);
@@ -68,9 +73,6 @@ ssize_t hfi_sysclass_rd(int dev, const char *attr, char *out, size_t len)
 	return rdct;
 }
 
-// hfi1_<dev>/uevent should be of the form NAME=<devname>
-static const size_t UEVENT_MAX = 256;
-
 int hfi_sysclass_get_devname(int dev, char **name)
 {
 	char tmpname[UEVENT_MAX];
@@ -81,12 +83,14 @@ int hfi_sysclass_get_devname(int dev, char **name)
 	}
 
 	size_t newlen = strnlen(tmpname, UEVENT_MAX);
-	if (newlen < 5 || strncmp(tmpname, "NAME=", 5) != 0)
+	if (newlen < 5 || strncmp(tmpname, "NAME=", 5) != 0) {
 		return -2;
+	}
 
 	*name = malloc(newlen + 1);
-	if (!*name)
+	if (!*name) {
 		return -3;
+	}
 	strncpy(*name, tmpname + 5, newlen);
 	return 1;
 }
@@ -98,8 +102,9 @@ int hfi_sysclass_get_pciPath(int dev, char **path)
 	*path = NULL;
 
 	int prct = snprintf(devpath, sizeof(devpath), HFI_SYSCLASS_FMT"/device", dev);
-	if (prct >= PATH_MAX)
+	if (prct >= PATH_MAX) {
 		return -1;
+	}
 
 	// Test that devpath exists and is a symlink
 	if (lstat(devpath, &sb) == -1) {
@@ -108,8 +113,9 @@ int hfi_sysclass_get_pciPath(int dev, char **path)
 
 	// No way to tell how long the resolved path will be, only safe option is to allocate PATH_MAX.
 	*path = malloc(PATH_MAX);
-	if (!*path)
+	if (!*path) {
 		return -3;
+	}
 
 	char *resolved = realpath(devpath, *path);
 	if (!resolved) {
