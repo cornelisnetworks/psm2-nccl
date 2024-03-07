@@ -38,6 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "hfi_sysclass.h"
 #include "psm2_nccl_debug.h"
 #include "psm2_nccl_api.h"
+#include "psm2_nccl_net.h"
 
 // Timeouts are in nanoseconds
 static const int64_t COMM_EP_CLOSE_TIMEOUT = 5e9; // 5 seconds
@@ -471,16 +472,41 @@ ncclResult_t psm2_nccl_devices(int* ndev)
 	return ncclSuccess;
 }
 
+ncclResult_t psm2_nccl_pciPath_v2(int dev, char** path)
+{
+	int rc = hfi_sysclass_get_pciPath(dev, path);
+	if (rc <= 0) {
+		PSM_DBG("hfi_sysclass_get_pciPath(): dev=%d,rc=%d", dev, rc);
+		return ncclInternalError;
+	}
+	PSM_DBG("dev=%d,pciPath=%s", dev, *path);
+
+	return ncclSuccess;
+}
+
+ncclResult_t psm2_nccl_ptrSupport_v2(int dev, int *supportedTypes)
+{
+	*supportedTypes = NCCL_PTR_HOST;
+	if (use_gpudirect) {
+		*supportedTypes |= NCCL_PTR_CUDA;
+	}
+	PSM_DBG("dev=%d,ptrSupport=0x%X", dev, *supportedTypes);
+	return ncclSuccess;
+}
+
 // Get various device properties.
 ncclResult_t psm2_nccl_getProperties(int dev, ncclNetProperties_v4_t* props)
 {
 	int rc;
+	ncclResult_t ret;
 	char *name = NULL;
+	uint32_t ports = 0;
+	uint32_t numctxts = 0;
+
 	// /sys/**/hfi1_<dev>/node_guid should be "xxxx:xxxx:xxxx:xxxx" => 20 chars + '\0'
 	const size_t GUID_LEN = 32;
 	char guid[GUID_LEN];
 	guid[GUID_LEN - 1] = '\0';
-	char *pciPath = NULL;
 
 	if (dev < 0 || dev > MAX_DEV) {
 		return ncclInvalidArgument;
@@ -494,13 +520,10 @@ ncclResult_t psm2_nccl_getProperties(int dev, ncclNetProperties_v4_t* props)
 	PSM_DBG("dev=%d,name=%s", dev, name);
 	props->name = name;
 
-	rc = hfi_sysclass_get_pciPath(dev, &pciPath);
-	if (rc <= 0) {
-		PSM_DBG("hfi_sysclass_get_pciPath(): dev=%d,rc=%d", dev, rc);
+	ret = psm2_nccl_pciPath_v2(dev, &props->pciPath);
+	if (ncclSuccess != ret) {
 		goto bail;
 	}
-	PSM_DBG("dev=%d,pciPath=%s", dev, pciPath);
-	props->pciPath = pciPath;
 
 	rc = hfi_sysclass_rd(dev, "node_guid", guid, GUID_LEN);
 	if (rc <= 0 || guid_str_to_u64(guid, &props->guid)) {
@@ -508,15 +531,10 @@ ncclResult_t psm2_nccl_getProperties(int dev, ncclNetProperties_v4_t* props)
 	}
 	PSM_DBG("dev=%d,guid=0x%"PRIX64, dev, props->guid);
 
-	props->ptrSupport = NCCL_PTR_HOST;
-	if (use_gpudirect) {
-		props->ptrSupport |= NCCL_PTR_CUDA;
-	}
-	PSM_DBG("dev=%d,ptrSupport=0x%X", dev, props->ptrSupport);
+	psm2_nccl_ptrSupport_v2(dev, &props->ptrSupport);
 
 	props->speed = 100e3;
 
-	uint32_t ports = 0;
 	rc = psm2_info_query(PSM2_INFO_QUERY_NUM_PORTS, (void*)&ports, 0, NULL);
 	PSM_DBG("dev=%d,rc=%d,ports=%u", dev, rc, ports);
 	if (rc != PSM2_OK) {
@@ -530,7 +548,6 @@ ncclResult_t psm2_nccl_getProperties(int dev, ncclNetProperties_v4_t* props)
 
 	psm2_info_query_arg_t qa = {0};
 	qa.unit = dev;
-	uint32_t numctxts = 0;
 	rc = psm2_info_query(PSM2_INFO_QUERY_NUM_FREE_CONTEXTS, (void*)&numctxts, 1, &qa);
 	PSM_DBG("dev=%d,rc=%d,numctxts=%u", dev, rc, numctxts);
 	if (rc != PSM2_OK) {
@@ -546,8 +563,8 @@ bail:
 		props->name = NULL;
 	}
 
-	if (pciPath) {
-		free(pciPath);
+	if (props->pciPath) {
+		free(props->pciPath);
 		props->pciPath = NULL;
 	}
 
@@ -719,11 +736,19 @@ ncclResult_t psm2_nccl_irecv(void* recvComm, void* data, int size, void* mhandle
 /**
  * PSM2 receive completion guarantees data present to GPU. So this is a no-op.
  */
-ncclResult_t psm2_nccl_iflush(void* recvComm, void* data, int size, void* mhandle, void** request)
+ncclResult_t psm2_nccl_iflush_v4(void* recvComm, void* data, int size, void* mhandle, void** request)
 {
 	if (request)
 		*request = NULL;
 
+	return ncclSuccess;
+}
+
+/**
+ * PSM2 receive completion guarantees data present to GPU. So this is a no-op.
+ */
+ncclResult_t psm2_nccl_flush_v3(void* recvComm, void* data, int size, void* mhandle)
+{
 	return ncclSuccess;
 }
 

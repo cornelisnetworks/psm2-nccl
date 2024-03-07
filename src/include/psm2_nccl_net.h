@@ -34,6 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ncclResult_t psm2_nccl_init(ncclDebugLogger_t logFunction);
 ncclResult_t psm2_nccl_devices(int* ndev);
+ncclResult_t psm2_nccl_pciPath_v2(int dev, char** path);
+ncclResult_t psm2_nccl_ptrSupport_v2(int dev, int *supportedTypes);
 ncclResult_t psm2_nccl_getProperties(int dev, ncclNetProperties_v4_t* props);
 ncclResult_t psm2_nccl_listen(int dev, void* handle, void** listenComm);
 ncclResult_t psm2_nccl_connect(int dev, void* handle, void** sendComm);
@@ -42,7 +44,8 @@ ncclResult_t psm2_nccl_regMr(void* comm, void* data, int size, int type, void** 
 ncclResult_t psm2_nccl_deregMr(void* comm, void* mhandle);
 ncclResult_t psm2_nccl_isend(void* sendComm, void* data, int size, void* mhandle, void** request);
 ncclResult_t psm2_nccl_irecv(void* recvComm, void* data, int size, void* mhandle, void** request);
-ncclResult_t psm2_nccl_iflush(void* recvComm, void* data, int size, void* mhandle, void** request);
+ncclResult_t psm2_nccl_flush_v3(void* recvComm, void* data, int size, void* mhandle);
+ncclResult_t psm2_nccl_iflush_v4(void* recvComm, void* data, int size, void* mhandle, void** request);
 ncclResult_t psm2_nccl_test(void* request, int* done, int* size);
 ncclResult_t psm2_nccl_closeSend(void* sendComm);
 ncclResult_t psm2_nccl_closeRecv(void* recvComm);
