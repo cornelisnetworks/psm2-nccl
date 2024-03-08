@@ -30,7 +30,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _PSM2_NCCL_NET_H_INCLUDED_
 #define _PSM2_NCCL_NET_H_INCLUDED_
 
-#include <nccl_net.h>
+#include "net.h"
 
 ncclResult_t psm2_nccl_init(ncclDebugLogger_t logFunction);
 ncclResult_t psm2_nccl_devices(int* ndev);

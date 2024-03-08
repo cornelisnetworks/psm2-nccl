@@ -30,9 +30,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _PSM2_NCCL_API_H_INCLUDED_
 #define _PSM2_NCCL_API_H_INCLUDED_
 
-#include <nccl_net.h>
 #include <psm2.h>
 #include <psm2_mq.h>
+#include <limits.h>
+#include "net.h"
 
 #define NUM_REQUESTS NCCL_NET_MAX_REQUESTS
 #define SHARED_EP_MULTI_ERROR 0

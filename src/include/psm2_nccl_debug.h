@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdio.h>
 #include <pthread.h>
-#include <nccl_net.h>
+#include "net.h"
 
 // Defined by nccl/include/debug.h.
 extern ncclDebugLogger_t pluginLogFunction;
