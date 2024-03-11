@@ -40,7 +40,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // NCCL Version from v2.4.2-1 to v2.5.7-1
 const ncclNet_v2_t ncclNetPlugin_v2 = {
-	.name = "psm2-nccl",
+	.name = PSM2_NCCL_PLUGIN_NAME,
 	.init = psm2_nccl_init,
 	.devices = psm2_nccl_devices,
 	.pciPath = psm2_nccl_pciPath_v2,
@@ -61,10 +61,10 @@ const ncclNet_v2_t ncclNetPlugin_v2 = {
 
 // NCCL Version from v2.6.4-1 to v2.7.8-1
 const ncclNet_v3_t ncclNetPlugin_v3 = {
-	.name = "psm2-nccl",
+	.name = PSM2_NCCL_PLUGIN_NAME,
 	.init = psm2_nccl_init,
 	.devices = psm2_nccl_devices,
-	.getProperties = psm2_nccl_getProperties,
+	.getProperties = psm2_nccl_getProperties_v4,
 	.listen = psm2_nccl_listen,
 	.connect = psm2_nccl_connect,
 	.accept = psm2_nccl_accept,
@@ -81,10 +81,10 @@ const ncclNet_v3_t ncclNetPlugin_v3 = {
 
 // NCCL Version from v2.8.3-1 to v2.11.4-1
 const ncclNet_v4_t ncclNetPlugin_v4 = {
-	.name = "psm2-nccl",
+	.name = PSM2_NCCL_PLUGIN_NAME,
 	.init = psm2_nccl_init,
 	.devices = psm2_nccl_devices,
-	.getProperties = psm2_nccl_getProperties,
+	.getProperties = psm2_nccl_getProperties_v4,
 	.listen = psm2_nccl_listen,
 	.connect = psm2_nccl_connect,
 	.accept = psm2_nccl_accept,
@@ -100,12 +100,12 @@ const ncclNet_v4_t ncclNetPlugin_v4 = {
 };
 
 // TODO: To implement
-// NCCL Version from v2.12.10-1 to v2.12.7-1
+// // NCCL Version from v2.12.10-1 to v2.12.7-1
 // const ncclNet_v5_t ncclNetPlugin_v5 = {
-// 	.name = "psm2-nccl",
+// 	.name = PSM2_NCCL_PLUGIN_NAME,
 // 	.init = psm2_nccl_init,
 // 	.devices = psm2_nccl_devices,
-// 	.getProperties = psm2_nccl_getProperties,
+// 	.getProperties = psm2_nccl_getProperties_v6,
 // 	.listen = psm2_nccl_listen,
 // 	.connect = psm2_nccl_connect,
 // 	.accept = psm2_nccl_accept,
@@ -121,10 +121,10 @@ const ncclNet_v4_t ncclNetPlugin_v4 = {
 // };
 // // NCCL Version from v2.13.4-1 to v2.18.6-1
 // const ncclNet_v6_t ncclNetPlugin_v6 = {
-// 	.name = "psm2-nccl",
+// 	.name = PSM2_NCCL_PLUGIN_NAME,
 // 	.init = psm2_nccl_init,
 // 	.devices = psm2_nccl_devices,
-// 	.getProperties = psm2_nccl_getProperties,
+// 	.getProperties = psm2_nccl_getProperties_v6,
 // 	.listen = psm2_nccl_listen,
 // 	.connect = psm2_nccl_connect,
 // 	.accept = psm2_nccl_accept,
@@ -140,10 +140,10 @@ const ncclNet_v4_t ncclNetPlugin_v4 = {
 // };
 // // NCCL Version from v2.19.1-1 to v2.19.4-1
 // const ncclNet_v7_t ncclNetPlugin_v7 = {
-// 	.name = "psm2-nccl",
+// 	.name = PSM2_NCCL_PLUGIN_NAME,
 // 	.init = psm2_nccl_init,
 // 	.devices = psm2_nccl_devices,
-// 	.getProperties = psm2_nccl_getProperties,
+// 	.getProperties = psm2_nccl_getProperties_v7,
 // 	.listen = psm2_nccl_listen,
 // 	.connect = psm2_nccl_connect,
 // 	.accept = psm2_nccl_accept,
@@ -159,7 +159,7 @@ const ncclNet_v4_t ncclNetPlugin_v4 = {
 // };
 // // NCCL Version from v2.20.3-1
 // const ncclNet_v8_t ncclNetPlugin_v8 = {
-// 	.name = "psm2-nccl",
+// 	.name = PSM2_NCCL_PLUGIN_NAME,
 // 	.init = psm2_nccl_init,
 // 	.devices = psm2_nccl_devices,
 // 	.getProperties = psm2_nccl_getProperties,

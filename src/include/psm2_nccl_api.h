@@ -39,6 +39,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define SHARED_EP_MULTI_ERROR 0
 #define SHARED_EP_MULTI_WARN 1
 #define PSM2_NCCL_COMM_CONNECT_ARRAY_SIZE 1
+// TODO: Change NCCL_NET_PSM2_MAX_RECVS to a value > 1, if we support grouped receive.
+// Maximum number for grouped receive operations: Currently not supported
+#define NCCL_NET_PSM2_MAX_RECVS 1
 
 /**
  * Information used by send comm to connect to receive comm.

@@ -490,18 +490,23 @@ ncclResult_t psm2_nccl_ptrSupport_v2(int dev, int *supportedTypes)
 	if (use_gpudirect) {
 		*supportedTypes |= NCCL_PTR_CUDA;
 	}
+	// Only supported by versions >= 5, use_gdr_dmabuf must be always 0 for older versions.
+	if (use_gdr_dmabuf) {
+		*supportedTypes |= NCCL_PTR_DMABUF;
+	}
+
 	PSM_DBG("dev=%d,ptrSupport=0x%X", dev, *supportedTypes);
 	return ncclSuccess;
 }
 
 // Get various device properties.
-ncclResult_t psm2_nccl_getProperties(int dev, ncclNetProperties_v4_t* props)
+ncclResult_t psm2_nccl_getProperties(int dev, psm2_ncclNetProperties* props)
 {
 	int rc;
 	ncclResult_t ret;
-	char *name = NULL;
 	uint32_t ports = 0;
 	uint32_t numctxts = 0;
+	psm2_info_query_arg_t qa = {0};
 
 	// /sys/**/hfi1_<dev>/node_guid should be "xxxx:xxxx:xxxx:xxxx" => 20 chars + '\0'
 	const size_t GUID_LEN = 32;
@@ -512,29 +517,38 @@ ncclResult_t psm2_nccl_getProperties(int dev, ncclNetProperties_v4_t* props)
 		return ncclInvalidArgument;
 	}
 
-	rc = hfi_sysclass_get_devname(dev, &name);
+	// 1. name
+	rc = hfi_sysclass_get_devname(dev, &props->name);
 	if (rc <= 0) {
 		PSM_DBG("hfi_sysclass_get_devname(): dev=%d,rc=%d", dev, rc);
 		goto bail;
 	}
-	PSM_DBG("dev=%d,name=%s", dev, name);
-	props->name = name;
+	PSM_DBG("dev=%d,name=%s", dev, props->name);
 
+	// 2. pciPath
 	ret = psm2_nccl_pciPath_v2(dev, &props->pciPath);
 	if (ncclSuccess != ret) {
 		goto bail;
 	}
 
+	// 3. guid
 	rc = hfi_sysclass_rd(dev, "node_guid", guid, GUID_LEN);
 	if (rc <= 0 || guid_str_to_u64(guid, &props->guid)) {
 		goto bail;
 	}
 	PSM_DBG("dev=%d,guid=0x%"PRIX64, dev, props->guid);
 
+	// 4. ptrSupport
 	psm2_nccl_ptrSupport_v2(dev, &props->ptrSupport);
 
+	// 5. speed
 	props->speed = 100e3;
 
+	// 6. latency
+	// TODO: Shall we set it to another value?
+	props->latency = .0;
+
+	// 7. port
 	rc = psm2_info_query(PSM2_INFO_QUERY_NUM_PORTS, (void*)&ports, 0, NULL);
 	PSM_DBG("dev=%d,rc=%d,ports=%u", dev, rc, ports);
 	if (rc != PSM2_OK) {
@@ -546,7 +560,7 @@ ncclResult_t psm2_nccl_getProperties(int dev, ncclNetProperties_v4_t* props)
 	}
 	props->port = 1;
 
-	psm2_info_query_arg_t qa = {0};
+	// 8. maxComms
 	qa.unit = dev;
 	rc = psm2_info_query(PSM2_INFO_QUERY_NUM_FREE_CONTEXTS, (void*)&numctxts, 1, &qa);
 	PSM_DBG("dev=%d,rc=%d,numctxts=%u", dev, rc, numctxts);
@@ -555,11 +569,23 @@ ncclResult_t psm2_nccl_getProperties(int dev, ncclNetProperties_v4_t* props)
 	}
 	props->maxComms = numctxts;
 
+	// TODO: All 4 below
+  // 9. maxRecvs
+  props->maxRecvs = NCCL_NET_PSM2_MAX_RECVS;
+
+	// 10. regIsGlobal
+  props->regIsGlobal = 0;
+
+  // 11. netDeviceType
+  props->netDeviceType = NCCL_NET_DEVICE_HOST;
+
+  // 12. netDeviceType
+  props->netDeviceVersion = NCCL_NET_DEVICE_INVALID_VERSION;
 	return ncclSuccess;
 
 bail:
-	if (name) {
-		free(name);
+	if (props->name) {
+		free(props->name);
 		props->name = NULL;
 	}
 
@@ -569,6 +595,69 @@ bail:
 	}
 
 	return ncclInternalError;
+}
+
+ncclResult_t psm2_nccl_getProperties_v4(int dev, ncclNetProperties_v4_t* props)
+{
+	psm2_ncclNetProperties psm2_props;
+	ncclResult_t ret = psm2_nccl_getProperties(dev_id, &psm2_props);
+	if (ncclSuccess != ret) {
+		return ret;
+	}
+
+	props->name = psm2_props.name;
+	props->pciPath = psm2_props.pciPath;
+	props->guid = psm2_props.guid;
+	props->ptrSupport = psm2_props.ptrSupport;
+	props->speed = psm2_props.speed;
+	props->port = psm2_props.port;
+	props->maxComms = psm2_props.maxComms;
+
+	return ncclSuccess;
+}
+
+ncclResult_t psm2_nccl_getProperties_v6(int dev, ncclNetProperties_v6_t* props)
+{
+	psm2_ncclNetProperties psm2_props;
+	ncclResult_t ret = psm2_nccl_getProperties(dev_id, &psm2_props);
+	if (ncclSuccess != ret) {
+		return ret;
+	}
+
+	props->name = psm2_props.name;
+	props->pciPath = psm2_props.pciPath;
+	props->guid = psm2_props.guid;
+	props->ptrSupport = psm2_props.ptrSupport;
+	props->speed = psm2_props.speed;
+	props->port = psm2_props.port;
+	props->maxComms = psm2_props.maxComms;
+	props->latency = psm2_props.latency;
+	props->maxRecvs = psm2_props.maxRecvs;
+
+	return ncclSuccess;
+}
+
+ncclResult_t psm2_nccl_getProperties_v7(int dev, ncclNetProperties_v7_t* props)
+{
+	psm2_ncclNetProperties psm2_props;
+	ncclResult_t ret = psm2_nccl_getProperties(dev_id, &psm2_props);
+	if (ncclSuccess != ret) {
+		return ret;
+	}
+
+	props->name = psm2_props.name;
+	props->pciPath = psm2_props.pciPath;
+	props->guid = psm2_props.guid;
+	props->ptrSupport = psm2_props.ptrSupport;
+	props->speed = psm2_props.speed;
+	props->port = psm2_props.port;
+	props->maxComms = psm2_props.maxComms;
+	props->latency = psm2_props.latency;
+	props->maxRecvs = psm2_props.maxRecvs;
+	props->netDeviceType = psm2_props.netDeviceType;
+	props->netDeviceVersion = psm2_props.netDeviceVersion;
+
+	return ncclSuccess;
 }
 
 // Create a receiving object and provide a handle to connect to it. The

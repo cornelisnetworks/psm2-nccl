@@ -32,11 +32,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "net.h"
 
+#define PSM2_NCCL_PLUGIN_NAME "psm2-nccl"
+
 ncclResult_t psm2_nccl_init(ncclDebugLogger_t logFunction);
 ncclResult_t psm2_nccl_devices(int* ndev);
 ncclResult_t psm2_nccl_pciPath_v2(int dev, char** path);
 ncclResult_t psm2_nccl_ptrSupport_v2(int dev, int *supportedTypes);
-ncclResult_t psm2_nccl_getProperties(int dev, ncclNetProperties_v4_t* props);
+ncclResult_t psm2_nccl_getProperties(int dev, psm2_ncclNetProperties* props);
+ncclResult_t psm2_nccl_getProperties_v4(int dev, ncclNetProperties_v4_t* props);
+ncclResult_t psm2_nccl_getProperties_v6(int dev, ncclNetProperties_v6_t* props);
+ncclResult_t psm2_nccl_getProperties_v7(int dev, ncclNetProperties_v7_t* props);
+ncclResult_t psm2_nccl_getProperties_v8(int dev, ncclNetProperties_v8_t* props);
 ncclResult_t psm2_nccl_listen(int dev, void* handle, void** listenComm);
 ncclResult_t psm2_nccl_connect(int dev, void* handle, void** sendComm);
 ncclResult_t psm2_nccl_accept(void* listenComm, void** recvComm);
