@@ -718,7 +718,7 @@ ncclResult_t psm2_nccl_connect(int dev, void* handle, void** sendComm)
 	psm2comm_handle_t *h = (psm2comm_handle_t*)handle;
 	comm->rem_epid = h->epid;
 	comm->tag = h->tag;
-#define PSM2_NCCL_COMM_CONNECT_ARRAY_SIZE 1
+
 	psm2_epid_t epids[PSM2_NCCL_COMM_CONNECT_ARRAY_SIZE] = { comm->rem_epid };
 	int mask[PSM2_NCCL_COMM_CONNECT_ARRAY_SIZE] = { 1 };
 	psm2_error_t conn_errors[PSM2_NCCL_COMM_CONNECT_ARRAY_SIZE] = { 0 };
@@ -743,6 +743,14 @@ bail:
 	return rc;
 }
 
+ncclResult_t psm2_nccl_connect_v8(int dev, void* handle, void** sendComm, ncclNetDeviceHandle_v8_t** sendDevComm)
+{
+	// TODO: Check if we keep it as NUll or not
+	// If *sendDevComm points to a valid object, then NCCL is requesting device offload for this connection
+	*sendDevComm = NULL;
+	return psm2_nccl_connect(dev, handle, sendComm);
+}
+
 /**
  * PSM2 does not have the idea of a "listening socket", just make
  * the listener become the receiver.
@@ -755,6 +763,13 @@ ncclResult_t psm2_nccl_accept(void* listenComm, void** recvComm)
 	dump_comm(listenComm, __func__);
 	*recvComm = listenComm;
 	return ncclSuccess;
+}
+
+// TODO: Same as connect
+ncclResult_t psm2_nccl_accept_v8(void* listenComm, void** recvComm, ncclNetDeviceHandle_v8_t** recvDevComm)
+{
+	*recvDevComm = NULL;
+	return psm2_nccl_accept(listenComm, recvComm);
 }
 
 // Register/Deregister memory. Comm can be either a sendComm or a recvComm.
