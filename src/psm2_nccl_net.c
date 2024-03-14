@@ -31,13 +31,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "psm2_nccl_net.h"
 
-// TODO: We probably need to set typedef ncclNet_vX_t ncclNet_t; for NCCL Net version X.
-// The old NCCL versions define only one structure ncclNet_t that corresponds to 
-// ncclNet_v2_t or ncclNet_v3_t depending on the nccl version.
-// Also starting from nccl version 2.19, backwards compatibility goes up to nccl net version 5:
-// ncclNetPlugin_v4 has been removed from nccl_net.h header.
-// We need to include "nccl_net/net_v4.h", so this code compiles.
-
 // NCCL Version from v2.4.2-1 to v2.5.7-1
 const ncclNet_v2_t ncclNetPlugin_v2 = {
 	.name = PSM2_NCCL_PLUGIN_NAME,
@@ -50,8 +43,8 @@ const ncclNet_v2_t ncclNetPlugin_v2 = {
 	.accept = psm2_nccl_accept,
 	.regMr = psm2_nccl_regMr,
 	.deregMr = psm2_nccl_deregMr,
-	.isend = psm2_nccl_isend,
-	.irecv = psm2_nccl_irecv,
+	.isend = psm2_nccl_isend_v4,
+	.irecv = psm2_nccl_irecv_v4,
 	.flush = psm2_nccl_flush_v3,
 	.test = psm2_nccl_test,
 	.closeSend = psm2_nccl_closeSend,
@@ -70,8 +63,8 @@ const ncclNet_v3_t ncclNetPlugin_v3 = {
 	.accept = psm2_nccl_accept,
 	.regMr = psm2_nccl_regMr,
 	.deregMr = psm2_nccl_deregMr,
-	.isend = psm2_nccl_isend,
-	.irecv = psm2_nccl_irecv,
+	.isend = psm2_nccl_isend_v4,
+	.irecv = psm2_nccl_irecv_v4,
 	.flush = psm2_nccl_flush_v3,
 	.test = psm2_nccl_test,
 	.closeSend = psm2_nccl_closeSend,
@@ -90,8 +83,8 @@ const ncclNet_v4_t ncclNetPlugin_v4 = {
 	.accept = psm2_nccl_accept,
 	.regMr = psm2_nccl_regMr,
 	.deregMr = psm2_nccl_deregMr,
-	.isend = psm2_nccl_isend,
-	.irecv = psm2_nccl_irecv,
+	.isend = psm2_nccl_isend_v4,
+	.irecv = psm2_nccl_irecv_v4,
 	.iflush = psm2_nccl_iflush_v4,
 	.test = psm2_nccl_test,
 	.closeSend = psm2_nccl_closeSend,
@@ -99,80 +92,86 @@ const ncclNet_v4_t ncclNetPlugin_v4 = {
 	.closeListen = psm2_nccl_closeListen
 };
 
-// TODO: To implement
-// // NCCL Version from v2.12.10-1 to v2.12.7-1
-// const ncclNet_v5_t ncclNetPlugin_v5 = {
-// 	.name = PSM2_NCCL_PLUGIN_NAME,
-// 	.init = psm2_nccl_init,
-// 	.devices = psm2_nccl_devices,
-// 	.getProperties = psm2_nccl_getProperties_v6,
-// 	.listen = psm2_nccl_listen,
-// 	.connect = psm2_nccl_connect,
-// 	.accept = psm2_nccl_accept,
-// 	.regMr = psm2_nccl_regMr,
-// 	.deregMr = psm2_nccl_deregMr,
-// 	.isend = psm2_nccl_isend,
-// 	.irecv = psm2_nccl_irecv,
-// 	.iflush = psm2_nccl_iflush_v4,
-// 	.test = psm2_nccl_test,
-// 	.closeSend = psm2_nccl_closeSend,
-// 	.closeRecv = psm2_nccl_closeRecv,
-// 	.closeListen = psm2_nccl_closeListen
-// };
-// // NCCL Version from v2.13.4-1 to v2.18.6-1
-// const ncclNet_v6_t ncclNetPlugin_v6 = {
-// 	.name = PSM2_NCCL_PLUGIN_NAME,
-// 	.init = psm2_nccl_init,
-// 	.devices = psm2_nccl_devices,
-// 	.getProperties = psm2_nccl_getProperties_v6,
-// 	.listen = psm2_nccl_listen,
-// 	.connect = psm2_nccl_connect,
-// 	.accept = psm2_nccl_accept,
-// 	.regMr = psm2_nccl_regMr,
-// 	.deregMr = psm2_nccl_deregMr,
-// 	.isend = psm2_nccl_isend,
-// 	.irecv = psm2_nccl_irecv,
-// 	.iflush = psm2_nccl_iflush_v4,
-// 	.test = psm2_nccl_test,
-// 	.closeSend = psm2_nccl_closeSend,
-// 	.closeRecv = psm2_nccl_closeRecv,
-// 	.closeListen = psm2_nccl_closeListen
-// };
-// // NCCL Version from v2.19.1-1 to v2.19.4-1
-// const ncclNet_v7_t ncclNetPlugin_v7 = {
-// 	.name = PSM2_NCCL_PLUGIN_NAME,
-// 	.init = psm2_nccl_init,
-// 	.devices = psm2_nccl_devices,
-// 	.getProperties = psm2_nccl_getProperties_v7,
-// 	.listen = psm2_nccl_listen,
-// 	.connect = psm2_nccl_connect_v8,
-// 	.accept = psm2_nccl_accept_v8,
-// 	.regMr = psm2_nccl_regMr,
-// 	.deregMr = psm2_nccl_deregMr,
-// 	.isend = psm2_nccl_isend,
-// 	.irecv = psm2_nccl_irecv,
-// 	.iflush = psm2_nccl_iflush_v4,
-// 	.test = psm2_nccl_test,
-// 	.closeSend = psm2_nccl_closeSend,
-// 	.closeRecv = psm2_nccl_closeRecv,
-// 	.closeListen = psm2_nccl_closeListen
-// };
-// // NCCL Version from v2.20.3-1
-// const ncclNet_v8_t ncclNetPlugin_v8 = {
-// 	.name = PSM2_NCCL_PLUGIN_NAME,
-// 	.init = psm2_nccl_init,
-// 	.devices = psm2_nccl_devices,
-// 	.getProperties = psm2_nccl_getProperties,
-// 	.listen = psm2_nccl_listen,
-// 	.connect = psm2_nccl_connect_v8,
-// 	.accept = psm2_nccl_accept_v8,
-// 	.regMr = psm2_nccl_regMr,
-// 	.deregMr = psm2_nccl_deregMr,
-// 	.isend = psm2_nccl_isend,
-// 	.irecv = psm2_nccl_irecv,
-// 	.iflush = psm2_nccl_iflush_v4,
-// 	.test = psm2_nccl_test,
-// 	.closeSend = psm2_nccl_closeSend,
-// 	.closeRecv = psm2_nccl_closeRecv,
-// 	.closeListen = psm2_nccl_closeListen
-// };
+// NCCL Version from v2.12.10-1 to v2.12.7-1
+const ncclNet_v5_t ncclNetPlugin_v5 = {
+	.name = PSM2_NCCL_PLUGIN_NAME,
+	.init = psm2_nccl_init,
+	.devices = psm2_nccl_devices,
+	.getProperties = psm2_nccl_getProperties_v6,
+	.listen = psm2_nccl_listen,
+	.connect = psm2_nccl_connect,
+	.accept = psm2_nccl_accept,
+	.regMr = psm2_nccl_regMr,
+	.deregMr = psm2_nccl_deregMr,
+	.isend = psm2_nccl_isend,
+	.irecv = psm2_nccl_irecv,
+	.iflush = psm2_nccl_iflush,
+	.test = psm2_nccl_test,
+	.closeSend = psm2_nccl_closeSend,
+	.closeRecv = psm2_nccl_closeRecv,
+	.closeListen = psm2_nccl_closeListen
+};
+// NCCL Version from v2.13.4-1 to v2.18.6-1
+const ncclNet_v6_t ncclNetPlugin_v6 = {
+	.name = PSM2_NCCL_PLUGIN_NAME,
+	.init = psm2_nccl_init,
+	.devices = psm2_nccl_devices,
+	.getProperties = psm2_nccl_getProperties_v6,
+	.listen = psm2_nccl_listen,
+	.connect = psm2_nccl_connect,
+	.accept = psm2_nccl_accept,
+	.regMr = psm2_nccl_regMr,
+	.regMrDmaBuf = psm2_nccl_regMrDmaBuf,
+	.deregMr = psm2_nccl_deregMr,
+	.isend = psm2_nccl_isend,
+	.irecv = psm2_nccl_irecv,
+	.iflush = psm2_nccl_iflush,
+	.test = psm2_nccl_test,
+	.closeSend = psm2_nccl_closeSend,
+	.closeRecv = psm2_nccl_closeRecv,
+	.closeListen = psm2_nccl_closeListen
+};
+// NCCL Version from v2.19.1-1 to v2.19.4-1
+const ncclNet_v7_t ncclNetPlugin_v7 = {
+	.name = PSM2_NCCL_PLUGIN_NAME,
+	.init = psm2_nccl_init,
+	.devices = psm2_nccl_devices,
+	.getProperties = psm2_nccl_getProperties_v7,
+	.listen = psm2_nccl_listen,
+	.connect = psm2_nccl_connect_v8,
+	.accept = psm2_nccl_accept_v8,
+	.regMr = psm2_nccl_regMr,
+	.regMrDmaBuf = psm2_nccl_regMrDmaBuf,
+	.deregMr = psm2_nccl_deregMr,
+	.isend = psm2_nccl_isend,
+	.irecv = psm2_nccl_irecv,
+	.iflush = psm2_nccl_iflush,
+	.test = psm2_nccl_test,
+	.closeSend = psm2_nccl_closeSend,
+	.closeRecv = psm2_nccl_closeRecv,
+	.closeListen = psm2_nccl_closeListen,
+	.getDeviceMr = NULL,
+	.irecvConsumed = NULL
+};
+// NCCL Version from v2.20.3-1
+const ncclNet_v8_t ncclNetPlugin_v8 = {
+	.name = PSM2_NCCL_PLUGIN_NAME,
+	.init = psm2_nccl_init,
+	.devices = psm2_nccl_devices,
+	.getProperties = psm2_nccl_getProperties,
+	.listen = psm2_nccl_listen,
+	.connect = psm2_nccl_connect_v8,
+	.accept = psm2_nccl_accept_v8,
+	.regMr = psm2_nccl_regMr_v8,
+	.regMrDmaBuf = psm2_nccl_regMrDmaBuf,
+	.deregMr = psm2_nccl_deregMr,
+	.isend = psm2_nccl_isend,
+	.irecv = psm2_nccl_irecv,
+	.iflush = psm2_nccl_iflush,
+	.test = psm2_nccl_test,
+	.closeSend = psm2_nccl_closeSend,
+	.closeRecv = psm2_nccl_closeRecv,
+	.closeListen = psm2_nccl_closeListen,
+	.getDeviceMr = NULL,
+	.irecvConsumed = NULL
+};

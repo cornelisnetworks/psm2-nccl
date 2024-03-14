@@ -545,7 +545,6 @@ ncclResult_t psm2_nccl_getProperties(int dev, psm2_ncclNetProperties* props)
 	props->speed = 100e3;
 
 	// 6. latency
-	// TODO: Shall we set it to another value?
 	props->latency = .0;
 
 	// 7. port
@@ -569,18 +568,17 @@ ncclResult_t psm2_nccl_getProperties(int dev, psm2_ncclNetProperties* props)
 	}
 	props->maxComms = numctxts;
 
-	// TODO: All 4 below
-  // 9. maxRecvs
-  props->maxRecvs = NCCL_NET_PSM2_MAX_RECVS;
+	// 9. maxRecvs
+	props->maxRecvs = NCCL_NET_PSM2_MAX_RECVS;
 
 	// 10. regIsGlobal
-  props->regIsGlobal = 0;
+	props->regIsGlobal = 0;
 
-  // 11. netDeviceType
-  props->netDeviceType = NCCL_NET_DEVICE_HOST;
+	// 11. netDeviceType
+	props->netDeviceType = NCCL_NET_DEVICE_HOST;
 
-  // 12. netDeviceType
-  props->netDeviceVersion = NCCL_NET_DEVICE_INVALID_VERSION;
+	// 12. netDeviceType
+	props->netDeviceVersion = NCCL_NET_DEVICE_INVALID_VERSION;
 	return ncclSuccess;
 
 bail:
@@ -600,7 +598,7 @@ bail:
 ncclResult_t psm2_nccl_getProperties_v4(int dev, ncclNetProperties_v4_t* props)
 {
 	psm2_ncclNetProperties psm2_props;
-	ncclResult_t ret = psm2_nccl_getProperties(dev_id, &psm2_props);
+	ncclResult_t ret = psm2_nccl_getProperties(dev, &psm2_props);
 	if (ncclSuccess != ret) {
 		return ret;
 	}
@@ -619,7 +617,7 @@ ncclResult_t psm2_nccl_getProperties_v4(int dev, ncclNetProperties_v4_t* props)
 ncclResult_t psm2_nccl_getProperties_v6(int dev, ncclNetProperties_v6_t* props)
 {
 	psm2_ncclNetProperties psm2_props;
-	ncclResult_t ret = psm2_nccl_getProperties(dev_id, &psm2_props);
+	ncclResult_t ret = psm2_nccl_getProperties(dev, &psm2_props);
 	if (ncclSuccess != ret) {
 		return ret;
 	}
@@ -640,7 +638,7 @@ ncclResult_t psm2_nccl_getProperties_v6(int dev, ncclNetProperties_v6_t* props)
 ncclResult_t psm2_nccl_getProperties_v7(int dev, ncclNetProperties_v7_t* props)
 {
 	psm2_ncclNetProperties psm2_props;
-	ncclResult_t ret = psm2_nccl_getProperties(dev_id, &psm2_props);
+	ncclResult_t ret = psm2_nccl_getProperties(dev, &psm2_props);
 	if (ncclSuccess != ret) {
 		return ret;
 	}
@@ -745,7 +743,6 @@ bail:
 
 ncclResult_t psm2_nccl_connect_v8(int dev, void* handle, void** sendComm, ncclNetDeviceHandle_v8_t** sendDevComm)
 {
-	// TODO: Check if we keep it as NUll or not
 	// If *sendDevComm points to a valid object, then NCCL is requesting device offload for this connection
 	*sendDevComm = NULL;
 	return psm2_nccl_connect(dev, handle, sendComm);
@@ -765,7 +762,6 @@ ncclResult_t psm2_nccl_accept(void* listenComm, void** recvComm)
 	return ncclSuccess;
 }
 
-// TODO: Same as connect
 ncclResult_t psm2_nccl_accept_v8(void* listenComm, void** recvComm, ncclNetDeviceHandle_v8_t** recvDevComm)
 {
 	*recvDevComm = NULL;
@@ -774,11 +770,22 @@ ncclResult_t psm2_nccl_accept_v8(void* listenComm, void** recvComm, ncclNetDevic
 
 // Register/Deregister memory. Comm can be either a sendComm or a recvComm.
 // Type is either NCCL_PTR_HOST or NCCL_PTR_CUDA.
-ncclResult_t psm2_nccl_regMr(void* comm, void* data, int size, int type, void** mhandle)
+ncclResult_t psm2_nccl_regMr_v8(void* comm, void* data, size_t size, int type, void** mhandle)
 {
 	if (mhandle) {
 		*mhandle = NULL;
 	}
+	return ncclSuccess;
+}
+
+ncclResult_t psm2_nccl_regMr(void* comm, void* data, int size, int type, void** mhandle)
+{
+	return  psm2_nccl_regMr_v8(comm, data, (size_t)size, type, mhandle);
+}
+
+ncclResult_t psm2_nccl_regMrDmaBuf(void* comm, void* data, size_t size, int type, uint64_t offset, int fd, void** mhandle)
+{
+	//Only used when NCCL_PTR_DMABUF is set
 	return ncclSuccess;
 }
 
@@ -789,7 +796,7 @@ ncclResult_t psm2_nccl_deregMr(void* comm, void* mhandle)
 
 // Asynchronous send to a peer.
 // May return request == NULL if the call cannot be performed (or would block)
-ncclResult_t psm2_nccl_isend(void* sendComm, void* data, int size, void* mhandle, void** request)
+ncclResult_t psm2_nccl_isend(void* sendComm, void* data, int size, int tag, void* mhandle, void** request)
 {
 	*request = NULL;
 	psm2comm_t *comm = (psm2comm_t*)sendComm;
@@ -812,9 +819,14 @@ ncclResult_t psm2_nccl_isend(void* sendComm, void* data, int size, void* mhandle
 	return ncclSuccess;
 }
 
+ncclResult_t psm2_nccl_isend_v4(void* sendComm, void* data, int size, void* mhandle, void** request)
+{
+	return psm2_nccl_isend(sendComm, data, size, 0, mhandle, request);
+}
+
 // Asynchronous recv from a peer.
 // May return request == NULL if the call cannot be performed (or would block)
-ncclResult_t psm2_nccl_irecv(void* recvComm, void* data, int size, void* mhandle, void** request)
+ncclResult_t psm2_nccl_irecv_v4(void* recvComm, void* data, int size, void* mhandle, void** request)
 {
 	*request = NULL;
 	psm2comm_t *comm = (psm2comm_t*)recvComm;
@@ -835,6 +847,29 @@ ncclResult_t psm2_nccl_irecv(void* recvComm, void* data, int size, void* mhandle
 
 	*request = r;
 	return ncclSuccess;
+}
+
+// TODO: psm2_nccl_irecv needs to be re-implemented when we support grouped receive
+ncclResult_t psm2_nccl_irecv(void* recvComm, int n, void** data, int* sizes, int* tags, void** mhandles, void** request)
+{
+	// We don't support grouped received yet, NCCL_NET_PSM2_MAX_RECVS=1
+	assert(n <= NCCL_NET_PSM2_MAX_RECVS);
+	// Use first element of the arrays of size n ==> data[0], sizes[0], mhandles[0]
+	return psm2_nccl_irecv_v4(recvComm, *data, *sizes, *mhandles, request);
+}
+
+/**
+ * PSM2 receive completion guarantees data present to GPU. So this is a no-op.
+ */
+ncclResult_t psm2_nccl_iflush(void* recvComm, int n, void** data, int* sizes, void** mhandles, void** request)
+{
+	// We don't support grouped received yet, NCCL_NET_PSM2_MAX_RECVS=1
+	assert(n <= NCCL_NET_PSM2_MAX_RECVS);
+	if (n > NCCL_NET_PSM2_MAX_RECVS)
+		return ncclInternalError;
+
+	// Use first element of the arrays of size n ==> data[0], sizes[0], mhandles[0]
+	return psm2_nccl_iflush_v4(recvComm, *data, *sizes, *mhandles, request);
 }
 
 /**

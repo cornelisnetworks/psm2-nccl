@@ -32,6 +32,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "net.h"
 
+// psm2_ncclNetProperties must be the latest ncclNetProperties_t structure
+// that holds all the fields defined by all ncclNetProperties_vX_t structures.
+typedef ncclNetProperties_v8_t psm2_ncclNetProperties;
+
 #define PSM2_NCCL_PLUGIN_NAME "psm2-nccl"
 
 ncclResult_t psm2_nccl_init(ncclDebugLogger_t logFunction);
@@ -49,11 +53,16 @@ ncclResult_t psm2_nccl_connect_v8(int dev, void* handle, void** sendComm, ncclNe
 ncclResult_t psm2_nccl_accept(void* listenComm, void** recvComm);
 ncclResult_t psm2_nccl_accept_v8(void* listenComm, void** recvComm, ncclNetDeviceHandle_v8_t** recvDevComm);
 ncclResult_t psm2_nccl_regMr(void* comm, void* data, int size, int type, void** mhandle);
+ncclResult_t psm2_nccl_regMr_v8(void* comm, void* data, size_t size, int type, void** mhandle);
+ncclResult_t psm2_nccl_regMrDmaBuf(void* comm, void* data, size_t size, int type, uint64_t offset, int fd, void** mhandle);
 ncclResult_t psm2_nccl_deregMr(void* comm, void* mhandle);
-ncclResult_t psm2_nccl_isend(void* sendComm, void* data, int size, void* mhandle, void** request);
-ncclResult_t psm2_nccl_irecv(void* recvComm, void* data, int size, void* mhandle, void** request);
-ncclResult_t psm2_nccl_flush_v3(void* recvComm, void* data, int size, void* mhandle);
+ncclResult_t psm2_nccl_isend(void* sendComm, void* data, int size, int tag, void* mhandle, void** request);
+ncclResult_t psm2_nccl_isend_v4(void* sendComm, void* data, int size, void* mhandle, void** request);
+ncclResult_t psm2_nccl_irecv(void* recvComm, int n, void** data, int* sizes, int* tags, void** mhandles, void** request);
+ncclResult_t psm2_nccl_irecv_v4(void* recvComm, void* data, int size, void* mhandle, void** request);
+ncclResult_t psm2_nccl_iflush(void* recvComm, int n, void** data, int* sizes, void** mhandles, void** request);
 ncclResult_t psm2_nccl_iflush_v4(void* recvComm, void* data, int size, void* mhandle, void** request);
+ncclResult_t psm2_nccl_flush_v3(void* recvComm, void* data, int size, void* mhandle);
 ncclResult_t psm2_nccl_test(void* request, int* done, int* size);
 ncclResult_t psm2_nccl_closeSend(void* sendComm);
 ncclResult_t psm2_nccl_closeRecv(void* recvComm);
