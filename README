@@ -59,7 +59,6 @@ MAKE VARIABLES
 Here are some important/useful variables for controlling the build behavior:
 - `BUILDDIR` [default='.']: control where generated libnccl-net.so is placed.
 - `NCCL_HOME` [default=_unset_]: directory under which include/ and lib/ dirs containing NCCL header files and NCCL dynamic library can be found.
-- `NCCL_INCLUDE` [default=_unset_]: directory in which NCCL header files can be found. Automatically set when NCCL_HOME is set.
 - `NCCL_LIB` [default=_unset_]: directory in which NCCL dynamic library file can be found. Automatically set when NCCL_HOME is set.
 - `NCCL_SRC_DIR` [default=`../nccl`]: nccl_net.h is needed to build the plugin. NCCL deb/rpm installs prior to NCCL version 2.10.3 do not install nccl_net.h. If nccl_net.h is not installed in `$(NCCL_HOME)/include`, set `NCCL_SRC_DIR` to `<path-to-nccl-git-clone>/src`. The Makefile will add `$(NCCL_SRC_DIR)/include` to the include path when building the plugin. This should not be needed when `NCCL_HOME` points to a NCCL source-build install or the NCCL devel package is installed on the build system and the NCCL version is >= 2.10.3.
 - `CUDA_HOME` [default=`/usr/local/cuda`]: CUDA installation root directory.

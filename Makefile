@@ -34,7 +34,6 @@ PSM2_LIB := /usr/lib64
 
 NCCL_SRC_DIR := ../nccl/src
 ifneq ($(NCCL_HOME),)
-NCCL_INCLUDE := $(NCCL_HOME)/include/
 NCCL_LIB := $(NCCL_HOME)/lib/
 endif
 
@@ -46,7 +45,7 @@ SONAME := $(BUILDDIR)/libnccl-net.so
 LIBSRC := src/psm2_nccl_net.c src/psm2_nccl_api.c src/hfi_sysclass.c
 LIBOBJS := $(LIBSRC:.c=.o)
 
-INCLUDES := -Isrc/include -Isrc/include/nccl_net $(addprefix -I,$(PSM2_INCLUDE) $(NCCL_INCLUDE) $(CUDA_INCLUDE))
+INCLUDES := -Isrc/include -Isrc/include/nccl_net $(addprefix -I,$(PSM2_INCLUDE) $(CUDA_INCLUDE))
 
 # nccl_net.h is needed to build the plugin.
 # NCCL source builds (all compatible versions) and libnccl-devel rpms (version
