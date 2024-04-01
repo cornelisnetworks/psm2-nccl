@@ -705,23 +705,14 @@ ncclResult_t psm2_nccl_irecv(void* recvComm, void* data, int size, void* mhandle
 	return ncclSuccess;
 }
 
-// Perform a flush/fence to make sure all data received with NCCL_PTR_CUDA is
-// visible to the GPU
+/**
+ * PSM2 receive completion guarantees data present to GPU. So this is a no-op.
+ */
 ncclResult_t psm2_nccl_iflush(void* recvComm, void* data, int size, void* mhandle, void** request)
 {
-	// NCCL calls this method on recv requests after psm2_nccl_test() returns
-	// done == 1. Even though request has now been put back in its comm's
-	// request pool, this cannot race provided that NCCL does not call
-	// psm2_nccl_isend(), psm2_nccl_irecv() on the same comm simultaneously
-	// from another thread.
-	if (request) {
-		comm_req_t *r = (comm_req_t *)*request;
-		assert(!r->used);
-		if (r->used)
-			return ncclInternalError;
-		// Remove (null-out) request in NCCL's requests array
+	if (request)
 		*request = NULL;
-	}
+
 	return ncclSuccess;
 }
 
