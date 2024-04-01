@@ -41,28 +41,21 @@ README Contents:
 
 DEPENDENCIES
 ============
-* IFS 10.11 w/GPU support installed on GPU nodes
-* libpsm2 w/NCCL support (https://github.com/cornelisnetworks/opa-psm2/tree/PSM2_11.2.NCCL) installed on GPU nodes
-  - libpsm2 should be built with CUDA support. See opa-psm2/README for how to build with CUDA support.
-* hfi1-gpudirect
-* CUDA 10.2 or later installed on GPU nodes
-* NCCL 2.9.6 or later installed on GPU nodes
-  - NCCL source-clone is needed when NCCL installed on build node via deb/rpm and NCCL version < 2.10.3. See `NCCL_SRC_DIR` below for details.
+* libpsm2 w/NCCL support, PSM2 v12.0/PSM2_11.2.229 or newer
+  - libpsm2 should be built with CUDA support. See opa-psm2/README for how to build with CUDA support
+* hfi1 w/NVIDIA support
+* CUDA 12.3 or later installed on GPU nodes
+* NCCL 2.20.5 or later installed on GPU nodes
 
 BUILDING
 ========
-Change directory (cd) to the psm2-nccl clone and run "make".
+Change directory (cd) to the psm2-nccl clone and run "make". This will build `${BUILDDIR}/libnccl-net.so`.
 
 MAKE VARIABLES
 ==============
 
 Here are some important/useful variables for controlling the build behavior:
 - `BUILDDIR` [default='.']: control where generated libnccl-net.so is placed.
-- `NCCL_HOME` [default=_unset_]: directory under which include/ and lib/ dirs containing NCCL header files and NCCL dynamic library can be found.
-- `NCCL_LIB` [default=_unset_]: directory in which NCCL dynamic library file can be found. Automatically set when NCCL_HOME is set.
-- `NCCL_SRC_DIR` [default=`../nccl`]: nccl_net.h is needed to build the plugin. NCCL deb/rpm installs prior to NCCL version 2.10.3 do not install nccl_net.h. If nccl_net.h is not installed in `$(NCCL_HOME)/include`, set `NCCL_SRC_DIR` to `<path-to-nccl-git-clone>/src`. The Makefile will add `$(NCCL_SRC_DIR)/include` to the include path when building the plugin. This should not be needed when `NCCL_HOME` points to a NCCL source-build install or the NCCL devel package is installed on the build system and the NCCL version is >= 2.10.3.
-- `CUDA_HOME` [default=`/usr/local/cuda`]: CUDA installation root directory.
-- `CUDA_INCLUDE` [default=`$(CUDA_HOME)/include]: directory containing CUDA header files.
 - `PSM2_INCLUDE` [default=`/usr/include`]: directory containing PSM2 header files.
 - `PSM2_LIB` [default=`/usr/lib64`]: directory containing PSM2 dynamic library file.
 - `DEBUG` [default=`0`]: when `1`, build PSM2-NCCL plugin with debug-info and debug-level optimization. Otherwise, build without debug info and higher optimization level.
