@@ -92,6 +92,7 @@ The PSM2-NCCL plugin has GPUDirect support enabled by default. This default shou
 Restrictions:
 * NCCL_NET_GDR_READ=0 must be set in job environment to disable GPUDirect on the send-side. Not doing so may result in deadlocks.
 * NCCL_PROTO=^LL128 must be set in job environment to prevent NCCL from using LL128 with the PSM2-NCCL plugin. Not doing so may result in silent data corruption.
+* NCCL_CUMEM_ENABLE=0 must be set for NCCL 2.19 and newer. Not doing so may result in an abort in libpsm2.
 
 PSM2-NCCL and PSM2 Multi-Endpoint
 ----------------------------------
